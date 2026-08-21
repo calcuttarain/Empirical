@@ -7,7 +7,7 @@ import pickle
 import subprocess
 import shutil
 
-from utils.io import ArtifactLoader
+from .utils.io import ArtifactLoader
 
 
 class ExperimentViewer:

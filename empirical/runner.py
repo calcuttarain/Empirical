@@ -7,7 +7,7 @@ from typing import Callable, List, Dict
 
 from .experiment import Experiment
 from .utils.metadata import get_metadata, get_git_diff
-from utils.io import ArtifactSaver
+from .utils.io import ArtifactSaver
 
 
 class Runner:

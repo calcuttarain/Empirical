@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .utils.metadata import get_metadata, get_git_diff 
 from .utils.duallogger import DualLogger
-from utils.io import ArtifactSaver
+from .utils.io import ArtifactSaver
 
 class Experiment:
     def __init__(self, name, base_dir = "results", run_id = None, save_git_patch = True, save_results = True, result_ext=None):
