@@ -40,7 +40,17 @@ class Runner:
 
     def _hash_params(self, params: Dict) -> str:
         """Create a hash for a parameter dictionary."""
-        encoded = json.dumps(params, sort_keys=True).encode("utf-8")
+
+        filtered_params = {}
+        for name, value in params.items():
+            if self.exclude_params and name in self.exclude_params:
+                continue
+            if self.include_params and name not in self.include_params:
+                continue
+            
+            filtered_params[name] = value
+
+        encoded = json.dumps(filtered_params, sort_keys=True).encode("utf-8")
         return hashlib.md5(encoded).hexdigest()[:8]
 
     def _is_run_completed(self, run_id: str) -> bool:
