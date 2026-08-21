@@ -1,5 +1,6 @@
 # runner.py
 import hashlib
+import itertools
 import json
 import time
 from pathlib import Path
@@ -50,8 +51,28 @@ class Runner:
                 return False
         return False
 
-    def run_grid(self, func: Callable, param_grid: List[Dict], stop_on_error: bool = False) -> List[Dict]:
+    def run_grid(self, func: Callable, param_grid: List[Dict] | Dict[str, list], stop_on_error: bool = False, mode: str = "grid") -> List[Dict]:
         """Execute a batch of configurations sequentially."""
+
+        # grid expansion
+        if isinstance(param_grid, dict):
+            keys = param_grid.keys()
+            values = param_grid.values()
+            
+            if mode == "grid":
+                # all possible compinations
+                param_grid = [dict(zip(keys, combination)) for combination in itertools.product(*values)]
+            
+            elif mode == "zip":
+                # one to one combinations
+                param_grid = [dict(zip(keys, combination)) for combination in zip(*values)]
+            
+            else:
+                raise ValueError("'mode' parameter must be 'grid' or 'zip'.")
+                
+        elif not isinstance(param_grid, list):
+            raise TypeError("Wrong type for param_grid parmeter.")
+
         self.suite_dir.mkdir(parents=True, exist_ok=True)
         
         # extract metadata once for the entire batch
