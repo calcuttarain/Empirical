@@ -14,9 +14,12 @@ from .utils.io import ArtifactSaver
 class Runner:
     """Runs multiple experiments."""
 
-    def __init__(self, suite_name: str, base_dir: str = "results", suite_id: str | Path | None = None):
+    def __init__(self, suite_name: str, base_dir: str = "results", suite_id: str | Path | None = None, include_params: list | None = None, exclude_params: list | None = None):
         self.suite_name = suite_name
         self.base_dir = Path(base_dir)
+
+        self.include_params = include_params
+        self.exclude_params = exclude_params
         
         meta = get_metadata()
         timestamp = meta["timestamp"]
@@ -112,7 +115,13 @@ class Runner:
             print(f"[RUN] {run_id} | Params: {params}")
 
             # run experiments
-            exp = Experiment(name=self.suite_name, base_dir=self.base_dir, run_id=f"{self.suite_id}/{run_id}", save_git_patch=False)
+            exp = Experiment(name=self.suite_name, 
+                             base_dir=self.base_dir, 
+                             run_id=f"{self.suite_id}/{run_id}", 
+                             save_git_patch=False, 
+                             include_params=self.include_params, 
+                             exclude_params=self.exclude_params)
+
             wrapped_func = exp(func)
 
             exp_start_time = time.perf_counter()

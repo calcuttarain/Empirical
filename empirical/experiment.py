@@ -16,13 +16,15 @@ from .utils.duallogger import DualLogger
 from .utils.io import ArtifactSaver
 
 class Experiment:
-    def __init__(self, name, base_dir = "results", run_id = None, save_git_patch = True, save_results = True, result_ext=None):
+    def __init__(self, name, base_dir = "results", run_id = None, save_git_patch = True, save_results = True, result_ext=None, include_params=None, exclude_params=None):
         self.name = name 
         self.base_dir = Path(base_dir)
         self.run_id = run_id
         self.save_git_patch = save_git_patch
         self.save_results = save_results
         self.result_ext = result_ext
+        self.include_params = include_params
+        self.exclude_params = exclude_params
 
     def __call__(self, func):
         @functools.wraps(func)
@@ -56,7 +58,7 @@ class Experiment:
 
             run_dir = self._create_run_dir(meta)
 
-            self._save_params_metadata(meta, args, kwargs, run_dir)
+            self._save_params_metadata(meta, func, args, kwargs, run_dir)
 
             log_file_path = run_dir / "output.log"
 
@@ -154,21 +156,29 @@ class Experiment:
             
         return wrapper
 
-    def _save_params_metadata(self, meta, args, kwargs, run_dir):
+    def _save_params_metadata(self, meta, func, args, kwargs, run_dir):
         # save uncommited changes in a .patch
-        if self.save_git_patch and meta.get("has_uncommitted_changes"):
-            diff_text = get_git_diff()
-            if diff_text:
-                ArtifactSaver.save_text(diff_text, run_dir / "uncommitted_changes.patch")
-        
-        # save function parameters
-        run_params = {
-            "args": [str(arg) for arg in args],
-            "kwargs": {k: str(v) for k, v in kwargs.items()}
-        }
-        
-        ArtifactSaver.save_json({"metadata": meta, "parameters": run_params}, run_dir / "params.json")
+            if self.save_git_patch and meta.get("has_uncommitted_changes"):
+                diff_text = get_git_diff()
+                if diff_text:
+                    ArtifactSaver.save_text(diff_text, run_dir / "uncommitted_changes.patch")
+            
+            # exlude params if needed
+            sig = inspect.signature(func)
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            all_params = bound_args.arguments 
 
+            filtered_params = {}
+            for name, value in all_params.items():
+                if self.exclude_params and name in self.exclude_params:
+                    continue
+                if self.include_params and name not in self.include_params:
+                    continue
+                    
+                filtered_params[name] = str(value)
+
+            ArtifactSaver.save_json({"metadata": meta, "parameters": filtered_params}, run_dir / "params.json")
              
     def _create_run_dir(self, meta):
         if self.run_id:
