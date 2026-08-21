@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 
 from datetime import datetime
@@ -7,6 +6,8 @@ from pathlib import Path
 import pickle
 import subprocess
 import shutil
+
+from .utils.io import ArtifactLoader
 
 
 class ExperimentViewer:
@@ -23,18 +24,16 @@ class ExperimentViewer:
             else:
                 raise FileNotFoundError(f"No runs found in: {self.path}")
 
-        self.params = self._load_json("params.json")
-        self.metrics = self._load_json("metrics.json")
-        self._history = self._load_json("history.json")
+        _params = ArtifactLoader.load_json(self.path / "params.json")
+        self.params = _params if isinstance(_params, dict) else {}
+
+        _metrics = ArtifactLoader.load_json(self.path / "metrics.json")
+        self.metrics = _metrics if isinstance(_metrics, dict) else {}
+
+        _history = ArtifactLoader.load_json(self.path / "history.json")
+        self._history = _history if isinstance(_history, list) else []
 
         self.patch_path = patch_path or (self.path / "uncommitted_changes.patch")
-
-    def _load_json(self, filename: str):
-        filepath = self.path / filename
-        if filepath.exists():
-            with open(filepath, "r", encoding="utf-8") as f:
-                return json.load(f)
-        return {}
 
     @property
     def history(self) -> pd.DataFrame:
@@ -46,19 +45,9 @@ class ExperimentViewer:
 
     @property
     def result(self):
-        """Return tje result of the experiment."""
-        npy_path = self.path / "result.npy"
-        pkl_path = self.path / "result.pkl"
-        txt_path = self.path / "result.txt"
+        """Return the result of the experiment."""
 
-        if npy_path.exists():
-            return np.load(npy_path, allow_pickle=True)
-        elif pkl_path.exists():
-            with open(pkl_path, "rb") as f:
-                return pickle.load(f)
-        elif txt_path.exists():
-            return txt_path.read_text(encoding="utf-8")
-        return None
+        return ArtifactLoader.load_result(self.path)
 
     def summary(self):
         """Show a clear summary."""
@@ -93,14 +82,14 @@ class ExperimentViewer:
 
     def show_log(self, lines: int = 30):
         """Show the last N lines of log file."""
-        log_file = self.path / "output.log"
-        if not log_file.exists():
+        log_text = ArtifactLoader.load_text(self.path / "output.log")
+
+        if not log_text:
             print("File output.log not foundd.")
             return
 
-        with open(log_file, "r", encoding="utf-8") as f:
-            all_lines = f.readlines()
-            print("".join(all_lines[-lines:]))
+        all_lines = log_text.splitlines()
+        print("\n".join(all_lines[-lines:]))
                 
     def restore_code_state(self, force: bool = False, destination_path: Path | None = None) -> None:
         """Checkout the exact git commit and apply uncommitted patch changes to restore the exact code state of the experiment in a new folder."""
@@ -164,7 +153,11 @@ class RunnerViewer:
 
         # load Runner summary
         summary_files = sorted(self.path.glob("suite_summary_*.json"), reverse=True)
-        self.summary_data = json.loads(summary_files[0].read_text(encoding="utf-8")) if summary_files else {}
+        if summary_files:
+            _summary = ArtifactLoader.load_json(summary_files[0])
+            self.summary_data = _summary if isinstance(_summary, dict) else {}
+        else:
+            self.summary_data = {}
 
         # find the one patch file
         patch_files = sorted(self.path.glob("suite_uncommitted_*.patch"), reverse=True)
