@@ -14,12 +14,14 @@ from .utils.io import ArtifactSaver
 class Runner:
     """Runs multiple experiments."""
 
-    def __init__(self, suite_name: str, base_dir: str = "results", suite_id: str | Path | None = None, include_params: list | None = None, exclude_params: list | None = None):
+    def __init__(self, suite_name: str, base_dir: str = "results", suite_id: str | Path | None = None, include_params: list | None = None, exclude_params: list | None = None, result_ext = None):
         self.suite_name = suite_name
         self.base_dir = Path(base_dir)
 
         self.include_params = include_params
         self.exclude_params = exclude_params
+
+        self.result_ext = result_ext
         
         meta = get_metadata()
         timestamp = meta["timestamp"]
@@ -129,6 +131,7 @@ class Runner:
                              base_dir=self.base_dir, 
                              run_id=f"{self.suite_id}/{run_id}", 
                              save_git_patch=False, 
+                             result_ext=self.result_ext,
                              include_params=self.include_params, 
                              exclude_params=self.exclude_params)
 
