@@ -7,6 +7,7 @@ from typing import Callable, List, Dict
 
 from .experiment import Experiment
 from .utils.metadata import get_metadata, get_git_diff
+from utils.io import ArtifactSaver
 
 
 class Runner:
@@ -68,8 +69,7 @@ class Runner:
                 diff_text = get_git_diff()
                 if diff_text:
                     patch_name = f"suite_uncommitted_{timestamp}.patch"
-                    with open(self.suite_dir / patch_name, "w", encoding="utf-8") as f:
-                        f.write(diff_text)
+                    ArtifactSaver.save_text(diff_text, self.suite_dir / patch_name)
 
         suite_start_time = time.perf_counter()
         start_date_str = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -130,7 +130,6 @@ class Runner:
         }
         
         summary_file = self.suite_dir / f"suite_summary_{timestamp}.json"
-        with open(summary_file, "w", encoding="utf-8") as f:
-            json.dump(summary_data, f, indent=4)
+        ArtifactSaver.save_json(summary_data, summary_file)
 
         return results

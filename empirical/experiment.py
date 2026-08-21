@@ -13,14 +13,16 @@ from pathlib import Path
 
 from .utils.metadata import get_metadata, get_git_diff 
 from .utils.duallogger import DualLogger
+from utils.io import ArtifactSaver
 
 class Experiment:
-    def __init__(self, name, base_dir = "results", run_id = None, save_git_patch = True, save_results = True):
+    def __init__(self, name, base_dir = "results", run_id = None, save_git_patch = True, save_results = True, result_ext=None):
         self.name = name 
         self.base_dir = Path(base_dir)
         self.run_id = run_id
         self.save_git_patch = save_git_patch
         self.save_results = save_results
+        self.result_ext = result_ext
 
     def __call__(self, func):
         @functools.wraps(func)
@@ -117,10 +119,9 @@ class Experiment:
             # save error and stacktrace 
             except Exception as e:
                 status = "FAILED"
-                with open(log_file_path, "a") as log_file:
-                    log_file.write(f"\n[ERROR]: {str(e)}\n")
-                    log_file.write(traceback.format_exc())
-                raise  
+                error_msg = f"\n[ERROR]: {str(e)}\n{traceback.format_exc()}"
+                ArtifactSaver.append_text(error_msg, log_file_path)
+                raise
                 
             # save experiment metrics
             finally:
@@ -141,29 +142,24 @@ class Experiment:
                     "peak_ram_mb": round(peak_mem / (1024 * 1024), 2)
                 }
 
-                with open(run_dir / "metrics.json", "w") as f:
-                    json.dump(metrics, f, indent=4)
+                ArtifactSaver.save_json(metrics, run_dir / "metrics.json")
 
                 if history_data:
-                    with open(run_dir / "history.json", "w") as f:
-                        json.dump(history_data, f, indent=4)
+                    ArtifactSaver.save_json(history_data, run_dir / "history.json")
 
-            # save final results
             if result is not None:
-                self._save_results(result, run_dir)
+                ArtifactSaver.save_result(result, run_dir, ext=self.result_ext)
                 
             return result
             
         return wrapper
-
 
     def _save_params_metadata(self, meta, args, kwargs, run_dir):
         # save uncommited changes in a .patch
         if self.save_git_patch and meta.get("has_uncommitted_changes"):
             diff_text = get_git_diff()
             if diff_text:
-                with open(run_dir / "uncommitted_changes.patch", "w") as f:
-                    f.write(diff_text)
+                ArtifactSaver.save_text(diff_text, run_dir / "uncommitted_changes.patch")
         
         # save function parameters
         run_params = {
@@ -171,8 +167,7 @@ class Experiment:
             "kwargs": {k: str(v) for k, v in kwargs.items()}
         }
         
-        with open(run_dir / "params.json", "w") as f:
-            json.dump({"metadata": meta, "parameters": run_params}, f, indent=4)
+        ArtifactSaver.save_json({"metadata": meta, "parameters": run_params}, run_dir / "params.json")
 
              
     def _create_run_dir(self, meta):
@@ -199,6 +194,7 @@ class Experiment:
             
             # extract values from numpy
             val = v.item() if hasattr(v, "item") else v
+
             
             if isinstance(val, (float, np.floating)):
                 formatted_items.append(f"{k}: {val:.4f}")
@@ -206,14 +202,3 @@ class Experiment:
                 formatted_items.append(f"{k}: {val}")
                 
         return " | ".join(formatted_items)
-
-
-    def _save_results(self, result, run_dir: Path):
-        if isinstance(result, np.ndarray):
-            np.save(run_dir / "result.npy", result)
-        elif isinstance(result, dict):
-            with open(run_dir / "result.pkl", "wb") as f:
-                pickle.dump(result, f)
-        else:
-            with open(run_dir / "result.txt", "w") as f:
-                f.write(str(result))
