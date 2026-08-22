@@ -33,7 +33,7 @@ class Experiment:
             if not self.save_results:
                 returned_obj = func(*args, **kwargs)
                 
-                print(f"Starting experiment '{self.name}'.")
+                print(f"{10 * '-'} Starting experiment '{self.name} {10 * '-'}")
                 
                 if inspect.isgenerator(returned_obj):
                     step = 0
@@ -66,7 +66,7 @@ class Experiment:
             dual_stdout = DualLogger(log_file_path, sys.stdout)
             dual_stderr = DualLogger(log_file_path, sys.stderr)
 
-            print(f"Starting experiment '{self.name}'. Saved in '{run_dir}'")
+            print(f"{10 * '-'} Starting experiment '{self.name}'. Saved in '{run_dir}' {10 * '-'}")
 
             result = None
             status = "SUCCESS"

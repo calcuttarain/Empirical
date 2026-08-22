@@ -101,7 +101,7 @@ class Runner:
         suite_start_time = time.perf_counter()
         start_date_str = time.strftime("%Y-%m-%d %H:%M:%S")
 
-        print(f"\n[{start_date_str}] Starting suite: '{self.suite_name}' | Total configs: {len(param_grid)}\n")
+        print(f"\n{15 * '+'} [{start_date_str}] Starting suite: '{self.suite_name}' | Total configs: {len(param_grid)} {15 * '+'}\n\n")
         results = []
 
         # iterate over configurations
@@ -111,12 +111,12 @@ class Runner:
 
             # skip finished configurations in case of crash
             if self._is_run_completed(run_id):
-                print(f"[SKIP] {run_id} completed in a previous session.")
+                print(f"[SKIP] {run_id} completed in a previous session.\n")
                 results.append({"run_id": run_id, "status": "SKIPPED"})
                 continue
 
             filtered_params = Experiment.filter_params(params = params, include_params = self.include_params, exclude_params = self.exclude_params)
-            print(f"[RUN] {run_id} | Params: {filtered_params}")
+            print(f"[RUN] {run_id} | Params: {filtered_params}\n")
 
             # run experiments
             exp = Experiment(name=self.suite_name, 
@@ -134,14 +134,14 @@ class Runner:
                 wrapped_func(**params)
 
                 run_duration = time.perf_counter() - exp_start_time
-                print(f"Finished in {run_duration:.4f}s")
+                print(f"\nFinished in {run_duration:.4f}s\n\n")
 
                 results.append({"run_id": run_id, "status": "SUCCESS", "duration_s": round(run_duration, 4)})
             except Exception as _:
                 print(f"[ERROR] {run_id} failed.")
 
                 run_duration = time.perf_counter() - exp_start_time
-                print(f"Failed in {run_duration:.4f}s")
+                print(f"\nFailed in {run_duration:.4f}s\n\n")
 
                 results.append({"run_id": run_id, "status": "FAILED", "duration_s": round(run_duration, 4)})
                 if stop_on_error:
@@ -151,7 +151,7 @@ class Runner:
         suite_duration = time.perf_counter() - suite_start_time
         suite_duration_fmt = time.strftime("%H:%M:%S", time.gmtime(suite_duration))
 
-        print(f"\nSuite '{self.suite_name}' finished in {suite_duration_fmt} ({suite_duration:.2f}s).")
+        print(f"\n\n{15 * '+'} Suite '{self.suite_name}' finished in {suite_duration_fmt} ({suite_duration:.2f}s) {15 * '+'}")
 
         # save summary file about the run
         summary_data = {
