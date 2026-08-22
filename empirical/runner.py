@@ -1,4 +1,4 @@
-# runner.py
+from _typeshed import Incomplete
 import hashlib
 import itertools
 import json
@@ -14,15 +14,13 @@ from .utils.io import ArtifactSaver
 class Runner:
     """Runs multiple experiments."""
 
-    def __init__(self, suite_name: str, base_dir: str = "results", suite_id: str | Path | None = None, include_params: list | None = None, exclude_params: list | None = None, result_ext = None):
+    def __init__(self, suite_name: str, base_dir: str = "results", suite_id: str | Path | None = None, include_params: list | None = None, exclude_params: list | None = None):
         self.suite_name = suite_name
         self.base_dir = Path(base_dir)
 
         self.include_params = include_params
         self.exclude_params = exclude_params
 
-        self.result_ext = result_ext
-        
         meta = get_metadata()
         timestamp = meta["timestamp"]
         short_hash = meta["git_head"][:7] if meta["git_head"] != "untracked" else "untracked"
@@ -43,15 +41,8 @@ class Runner:
     def _hash_params(self, params: Dict) -> str:
         """Create a hash for a parameter dictionary."""
 
-        filtered_params = {}
-        for name, value in params.items():
-            if self.exclude_params and name in self.exclude_params:
-                continue
-            if self.include_params and name not in self.include_params:
-                continue
+        filtered_params = Experiment.filter_params(params = params, include_params = self.include_params, exclude_params = self.exclude_params)
             
-            filtered_params[name] = value
-
         encoded = json.dumps(filtered_params, sort_keys=True).encode("utf-8")
         return hashlib.md5(encoded).hexdigest()[:8]
 
@@ -66,7 +57,7 @@ class Runner:
                 return False
         return False
 
-    def run_grid(self, func: Callable, param_grid: List[Dict] | Dict[str, list], stop_on_error: bool = False, mode: str = "grid") -> List[Dict]:
+    def run_grid(self, func: Callable, param_grid: List[Dict] | Dict[str, list], stop_on_error: bool = False, mode: str = "grid", result_ext: str | None = None):
         """Execute a batch of configurations sequentially."""
 
         # grid expansion
@@ -124,14 +115,15 @@ class Runner:
                 results.append({"run_id": run_id, "status": "SKIPPED"})
                 continue
 
-            print(f"[RUN] {run_id} | Params: {params}")
+            filtered_params = Experiment.filter_params(params = params, include_params = self.include_params, exclude_params = self.exclude_params)
+            print(f"[RUN] {run_id} | Params: {filtered_params}")
 
             # run experiments
             exp = Experiment(name=self.suite_name, 
                              base_dir=self.base_dir, 
                              run_id=f"{self.suite_id}/{run_id}", 
                              save_git_patch=False, 
-                             result_ext=self.result_ext,
+                             result_ext=result_ext,
                              include_params=self.include_params, 
                              exclude_params=self.exclude_params)
 

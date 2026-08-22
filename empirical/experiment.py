@@ -169,16 +169,11 @@ class Experiment:
             bound_args.apply_defaults()
             all_params = bound_args.arguments 
 
-            filtered_params = {}
-            for name, value in all_params.items():
-                if self.exclude_params and name in self.exclude_params:
-                    continue
-                if self.include_params and name not in self.include_params:
-                    continue
-                    
-                filtered_params[name] = str(value)
+            filtered_params = self.filter_params(all_params, self.include_params, self.exclude_params)
+        
+            stringified_params = {k: str(v) for k, v in filtered_params.items()}
 
-            ArtifactSaver.save_json({"metadata": meta, "parameters": filtered_params}, run_dir / "params.json")
+            ArtifactSaver.save_json({"metadata": meta, "parameters": stringified_params}, run_dir / "params.json")
              
     def _create_run_dir(self, meta):
         if self.run_id:
@@ -194,6 +189,18 @@ class Experiment:
         run_dir.mkdir(parents=True, exist_ok=True)
 
         return run_dir
+
+    @staticmethod
+    def filter_params(params: dict, include_params: list | None = None, exclude_params: list | None = None) -> dict:
+        """Return the list of permitted parameters for printing/saving etc."""
+        filtered_params = {}
+        for name, value in params.items():
+            if exclude_params and name in exclude_params:
+                continue
+            if include_params and name not in include_params:
+                continue
+            filtered_params[name] = value
+        return filtered_params
     
     @staticmethod
     def _format_yielded_dict(data: dict) -> str:
