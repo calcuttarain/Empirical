@@ -1,4 +1,4 @@
-# runner.py
+from _typeshed import Incomplete
 import hashlib
 import itertools
 import json
@@ -14,15 +14,13 @@ from .utils.io import ArtifactSaver
 class Runner:
     """Runs multiple experiments."""
 
-    def __init__(self, suite_name: str, base_dir: str = "results", suite_id: str | Path | None = None, include_params: list | None = None, exclude_params: list | None = None, result_ext = None):
+    def __init__(self, suite_name: str, base_dir: str = "results", suite_id: str | Path | None = None, include_params: list | None = None, exclude_params: list | None = None):
         self.suite_name = suite_name
         self.base_dir = Path(base_dir)
 
         self.include_params = include_params
         self.exclude_params = exclude_params
 
-        self.result_ext = result_ext
-        
         meta = get_metadata()
         timestamp = meta["timestamp"]
         short_hash = meta["git_head"][:7] if meta["git_head"] != "untracked" else "untracked"
@@ -43,15 +41,8 @@ class Runner:
     def _hash_params(self, params: Dict) -> str:
         """Create a hash for a parameter dictionary."""
 
-        filtered_params = {}
-        for name, value in params.items():
-            if self.exclude_params and name in self.exclude_params:
-                continue
-            if self.include_params and name not in self.include_params:
-                continue
+        filtered_params = Experiment.filter_params(params = params, include_params = self.include_params, exclude_params = self.exclude_params)
             
-            filtered_params[name] = value
-
         encoded = json.dumps(filtered_params, sort_keys=True).encode("utf-8")
         return hashlib.md5(encoded).hexdigest()[:8]
 
@@ -66,7 +57,7 @@ class Runner:
                 return False
         return False
 
-    def run_grid(self, func: Callable, param_grid: List[Dict] | Dict[str, list], stop_on_error: bool = False, mode: str = "grid") -> List[Dict]:
+    def run_grid(self, func: Callable, param_grid: List[Dict] | Dict[str, list], stop_on_error: bool = False, mode: str = "grid", result_ext: str | None = None):
         """Execute a batch of configurations sequentially."""
 
         # grid expansion
@@ -110,7 +101,7 @@ class Runner:
         suite_start_time = time.perf_counter()
         start_date_str = time.strftime("%Y-%m-%d %H:%M:%S")
 
-        print(f"\n[{start_date_str}] Starting suite: '{self.suite_name}' | Total configs: {len(param_grid)}\n")
+        print(f"\n{15 * '+'} [{start_date_str}] Starting suite: '{self.suite_name}' | Total configs: {len(param_grid)} {15 * '+'}\n\n")
         results = []
 
         # iterate over configurations
@@ -120,18 +111,19 @@ class Runner:
 
             # skip finished configurations in case of crash
             if self._is_run_completed(run_id):
-                print(f"[SKIP] {run_id} completed in a previous session.")
+                print(f"[SKIP] {run_id} completed in a previous session.\n")
                 results.append({"run_id": run_id, "status": "SKIPPED"})
                 continue
 
-            print(f"[RUN] {run_id} | Params: {params}")
+            filtered_params = Experiment.filter_params(params = params, include_params = self.include_params, exclude_params = self.exclude_params)
+            print(f"[RUN] {run_id} | Params: {filtered_params}\n")
 
             # run experiments
             exp = Experiment(name=self.suite_name, 
                              base_dir=self.base_dir, 
                              run_id=f"{self.suite_id}/{run_id}", 
                              save_git_patch=False, 
-                             result_ext=self.result_ext,
+                             result_ext=result_ext,
                              include_params=self.include_params, 
                              exclude_params=self.exclude_params)
 
@@ -142,14 +134,14 @@ class Runner:
                 wrapped_func(**params)
 
                 run_duration = time.perf_counter() - exp_start_time
-                print(f"Finished in {run_duration:.4f}s")
+                print(f"\nFinished in {run_duration:.4f}s\n\n")
 
                 results.append({"run_id": run_id, "status": "SUCCESS", "duration_s": round(run_duration, 4)})
             except Exception as _:
                 print(f"[ERROR] {run_id} failed.")
 
                 run_duration = time.perf_counter() - exp_start_time
-                print(f"Failed in {run_duration:.4f}s")
+                print(f"\nFailed in {run_duration:.4f}s\n\n")
 
                 results.append({"run_id": run_id, "status": "FAILED", "duration_s": round(run_duration, 4)})
                 if stop_on_error:
@@ -159,7 +151,7 @@ class Runner:
         suite_duration = time.perf_counter() - suite_start_time
         suite_duration_fmt = time.strftime("%H:%M:%S", time.gmtime(suite_duration))
 
-        print(f"\nSuite '{self.suite_name}' finished in {suite_duration_fmt} ({suite_duration:.2f}s).")
+        print(f"\n\n{15 * '+'} Suite '{self.suite_name}' finished in {suite_duration_fmt} ({suite_duration:.2f}s) {15 * '+'}")
 
         # save summary file about the run
         summary_data = {
